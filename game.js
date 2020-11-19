@@ -1,7 +1,5 @@
-const width = window.innerWidth || document.documentElement.clientWidth ||
-    document.body.clientWidth;
-const height = window.innerHeight || document.documentElement.clientHeight ||
-    document.body.clientHeight;
+const width = 1024
+const height = 576
 /* webgl globals */
 var gl = null; // the all powerful gl object. It's all here folks!
 var tetris = null;
@@ -14,6 +12,7 @@ var specularUniform;
 var viewUniform;
 var modelUniform;
 var samplerUniform;
+var colorUniform;
 
 var vertexAttrib;
 var normalAttrib;
@@ -45,27 +44,21 @@ function setupShaders() {
     var vShaderCode = `
         attribute vec3 aVertexPosition; // vertex position
         attribute vec3 aVertexNormal; // vertex normal
-        attribute vec2 aTextureCoord; // uv coord
-
-        varying highp vec2 vTextureCoord; //interpolated uv
 
         uniform mat4 model; // the model matrix
         uniform mat4 viewProj; // the project view model matrix
 
         void main(void) {
-            vTextureCoord = aTextureCoord;
-            gl_Position = viewProj * vec4(aVertexPosition, 1.0);
+            aVertexNormal;
+            gl_Position = viewProj * model * vec4(aVertexPosition, 1.0);
         }`;
 
     // define fragment shader in essl using es6 template strings
     var fShaderCode = `
         precision mediump float; // set float to medium precision
-
-        uniform sampler2D uSampler;
-        varying highp vec2 vTextureCoord;
-
+        uniform vec3 colorU;
         void main(void) {
-            gl_FragColor = texture2D(uSampler, vTextureCoord);
+            gl_FragColor = vec4(colorU, 1.0);
         }`;
 
     try {
@@ -99,11 +92,9 @@ function setupShaders() {
                 gl.enableVertexAttribArray(vertexAttrib); // connect attrib to array
                 normalAttrib = gl.getAttribLocation(shaderProgram, "aVertexNormal"); // ptr to vertex normal attrib
                 gl.enableVertexAttribArray(normalAttrib); // connect attrib to array
-
-                uvAttrib = gl.getAttribLocation(shaderProgram, "aTextureCoord");
-                gl.enableVertexAttribArray(uvAttrib);
                 // locate vertex uniforms
                 modelUniform = gl.getUniformLocation(shaderProgram, "model"); // ptr to mmat
+                colorUniform = gl.getUniformLocation(shaderProgram, "colorU");
                 viewUniform = gl.getUniformLocation(shaderProgram, "viewProj"); // ptr to pvmmat
                 samplerUniform = gl.getUniformLocation(shaderProgram, "uSampler");
             } // end if no shader program link errors

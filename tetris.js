@@ -1,114 +1,137 @@
-//function for loading texture
-// created with help of https://developer.mozilla.org/en-US/docs/Web/API/WebGL_API/Tutorial/
-function loadTexture(url) {
-    const texture = gl.createTexture();
-    gl.bindTexture(gl.TEXTURE_2D, texture);
-    const level = 0;
-    const internalFormat = gl.RGBA;
-    const width = 1;
-    const height = 1;
-    const border = 0;
-    const srcFormat = gl.RGBA;
-    const srcType = gl.UNSIGNED_BYTE;
-    const pixel = new Uint8Array([0, 0, 255, 255]);
-    gl.texImage2D(gl.TEXTURE_2D, level, internalFormat,
-        width, height, border, srcFormat, srcType,
-        pixel);
-
-    var image = new Image();
-    image.onload = function () {
-        gl.bindTexture(gl.TEXTURE_2D, texture);
-        gl.texImage2D(gl.TEXTURE_2D, level, internalFormat,
-            srcFormat, srcType, image);
-        if (isPowerOf2(image.width) && isPowerOf2(image.height)) {
-
-            gl.generateMipmap(gl.TEXTURE_2D);
-        } else {
-
-            gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_S, gl.CLAMP_TO_EDGE);
-            gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_T, gl.CLAMP_TO_EDGE);
-            gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.LINEAR);
-        }
-    };
-    image.src = url;
-    //console.log(image);
-
-    return texture;
-}
-
-function isPowerOf2(value) {
-    return (value & (value - 1)) == 0;
-}
-
+var gridOffset;
+var xOffset;
+var yOffset;
+var vertexBuffer;
+var normalBuffer;
+var indexBuffer;
 class Tetris {
-    constructor(canvasWidth, canvasHeight, background="galaxy.jpg") {
+    constructor(canvasWidth, canvasHeight, background = "http://github.ncsu.edu/gefthym/prog5csc461/blob/master/resources/galaxy.jpg") {
         gl.enable(gl.BLEND)
         gl.blendFunc(gl.SRC_ALPHA, gl.ONE_MINUS_SRC_ALPHA);
-        this.backgroundTexture = loadTexture(background);
+        //this.backgroundTexture = loadTexture(background);
         this.width = canvasWidth;
         this.height = canvasHeight;
         this.depth = 40;
         this.tetriminos = [];
-        this.vertexBuffer = gl.createBuffer();
-        this.normalBuffer = gl.createBuffer();
-        this.indexBuffer = gl.createBuffer();
-        this.uvBuffer = gl.createBuffer();
+        vertexBuffer = gl.createBuffer();
+        normalBuffer = gl.createBuffer();
+        indexBuffer = gl.createBuffer();
         this.backgroundVertices = [];
         this.backgroundIndices = [];
-        this.backgroundUVs = [];
-        this.eye = vec3.fromValues(0, this.height / 2, -1);
-        this.viewMatrix = mat4.lookAt(mat4.create(), this.eye, vec3.fromValues(0, this.height / 2, 1), vec3.fromValues(0, 1, 0));
-        var fovy = 2 * Math.atan2(this.depth, this.height / 2);
-        var perspective = mat4.perspective(mat4.create(), fovy, this.width / this.height, 1e-4, 1e4);
+        this.grid = this.createGrid(width, height);
+        this.eye = vec3.fromValues(width / 2, this.height / 2, 0);
+        gridOffset = width / 3;
+        xOffset = (width / 3) / 10;
+        yOffset = height / 20;
+        this.viewMatrix = mat4.lookAt(mat4.create(), this.eye, vec3.fromValues(width / 2, this.height / 2, 1), vec3.fromValues(0, 1, 0));
+        var perspective = mat4.ortho(mat4.create(), -this.width + (this.width / 2), this.width / 2, -this.height + (this.height / 2), this.height / 2, 0, this.depth + 1);
         mat4.multiply(this.viewMatrix, perspective, this.viewMatrix);
         this.initializeBackground();
     }
     initializeBackground() {
-        this.backgroundVertices.push(this.width / 2, 0, this.depth, -this.width / 2, 0, this.depth, this.width / 2, this.height, this.depth, -this.width / 2, this.height, this.depth);
+        this.backgroundVertices.push(this.width, 0, this.depth, 0, 0, this.depth, this.width, this.height, this.depth, 0, this.height, this.depth);
+        //add width gridlines to vertices
+        for (let i = 0; i <= 10; i++) {
+            this.backgroundVertices.push(gridOffset + xOffset * i, this.height, this.depth - 1);
+            this.backgroundVertices.push(gridOffset + xOffset * i, 0, this.depth - 1);
+        }
+        //add height gridlines
+        for (let i = 0; i <= 20; i++) {
+            this.backgroundVertices.push(gridOffset, yOffset * i, this.depth - 1);
+            this.backgroundVertices.push(2 * gridOffset, yOffset * i, this.depth - 1);
+        }
+        console.log(this.backgroundVertices);
         this.backgroundIndices.push(0, 1, 2, 2, 1, 3);
-        this.backgroundUVs.push(0, 0, 1, 0, 1, 0, 1, 1);
     }
     addTetrimino(type) {
 
     }
-
+    createGrid(width, height) {
+        //10 by 20
+        var grid = [];
+        for (let x = 0; x < 10; x++) {
+            grid[x] = [];
+            for (let y = 0; y < 20; y++) {
+                grid[x][y] = null;
+            }
+        }
+        return grid;
+    }
     render() {
         console.log('render');
         gl.uniformMatrix4fv(viewUniform, false, this.viewMatrix);
         this.renderBackground();
-        this.renderBlocks();
         this.renderUI();
+        //test render block at block index 0, 0
+        this.plantOnGrid(new Tetrimino("T", 4, 16));
+        this.renderBlocks();
     }
-
+    plantOnGrid(tetrimino) {
+        if (tetrimino.type == "O" || tetrimino.type == "I") {
+            for (let i = 0; i < 4; i++) {
+                for (let j = 0; j < 4; j++) {
+                    let x = tetrimino.x + i;
+                    let y = tetrimino.y + j;
+                    this.grid[x][y] = tetrimino.grid[i][j];
+                    if (this.grid[x][y] != null) {
+                        this.grid[x][y].modelMat = mat4.fromTranslation(mat4.create(),
+                            vec3.fromValues(xOffset*tetrimino.x + xOffset*i + gridOffset,
+                                            yOffset*tetrimino.y + yOffset*j, this.depth - xOffset));
+                    }
+                }
+            }
+        } else {
+            for (let i = 0; i < 3; i++) {
+                for (let j = 0; j < 3; j++) {
+                    let x = tetrimino.x + i;
+                    let y = tetrimino.y + j;
+                    this.grid[x][y] = tetrimino.grid[i][j];
+                    if (this.grid[x][y] != null) {
+                        this.grid[x][y].modelMat = mat4.fromTranslation(mat4.create(),
+                            vec3.fromValues(xOffset*tetrimino.x + xOffset*i + gridOffset,
+                                            yOffset*tetrimino.y + yOffset*j, this.depth - xOffset));
+                    }
+                }
+            }
+        }
+    }
     renderBlocks() {
-
+        for (let i = 0; i < 10; i++) {
+            for (let j = 0; j < 20; j++) {
+                if (this.grid[i][j] != null) {
+                    console.log(this.grid[i][j]);
+                    this.grid[i][j].render();
+                }
+            }
+        }
     }
     renderUI() {
 
     }
 
     renderBackground() {
-        gl.bindBuffer(gl.ARRAY_BUFFER, this.vertexBuffer);
-        gl.bufferData(gl.ARRAY_BUFFER,new Float32Array(this.backgroundVertices),gl.STATIC_DRAW); // coords to that buffer
-        gl.vertexAttribPointer(vertexAttrib,3,gl.FLOAT,false,0,0);
-        gl.vertexAttribPointer(normalAttrib,3,gl.FLOAT,false,0,0);
-
-        gl.bindBuffer(gl.ARRAY_BUFFER, this.uvBuffer);
-        gl.bufferData(gl.ARRAY_BUFFER,new Float32Array(this.backgroundUVs),gl.STATIC_DRAW); // coords to that buffer
-        gl.vertexAttribPointer(uvAttrib,2,gl.FLOAT,false,0,0);
-
-        //textures
-        gl.activeTexture(gl.TEXTURE0);
-
-        // Bind the texture to texture unit 0
-        gl.bindTexture(gl.TEXTURE_2D, this.backgroundTexture);
-
-        // Tell the shader we bound the texture to texture unit 0
-        gl.uniform1i(samplerUniform, 0);
-
-        gl.bindBuffer(gl.ELEMENT_ARRAY_BUFFER, this.indexBuffer);
+        gl.uniformMatrix4fv(modelUniform, false, mat4.create());
+        gl.bindBuffer(gl.ARRAY_BUFFER, vertexBuffer);
+        gl.bufferData(gl.ARRAY_BUFFER, new Float32Array(this.backgroundVertices), gl.STATIC_DRAW); // coords to that buffer
+        gl.vertexAttribPointer(vertexAttrib, 3, gl.FLOAT, false, 0, 0);
+        gl.vertexAttribPointer(normalAttrib, 3, gl.FLOAT, false, 0, 0);
+        gl.uniform3fv(colorUniform, [0.86, 0.86, 0.86]);
+        gl.bindBuffer(gl.ELEMENT_ARRAY_BUFFER, indexBuffer);
         gl.bufferData(gl.ELEMENT_ARRAY_BUFFER, new Uint16Array(this.backgroundIndices), gl.STATIC_DRAW);
         gl.drawElements(gl.TRIANGLES, this.backgroundIndices.length, gl.UNSIGNED_SHORT, 0);
+
+        //gridlines
+        gl.uniform3fv(colorUniform, [0, 0, 0]);
+        this.backgroundIndices = [];
+        for (let i = 1; i <= 22; i++) {
+            this.backgroundIndices.push(3 + i);
+        }
+        //add height gridlines
+        for (let i = 1; i <= 42; i++) {
+            this.backgroundIndices.push(25 + i);
+        }
+        gl.bufferData(gl.ELEMENT_ARRAY_BUFFER, new Uint16Array(this.backgroundIndices), gl.STATIC_DRAW);
+        gl.drawElements(gl.LINES, this.backgroundIndices.length, gl.UNSIGNED_SHORT, 0);
     }
     clearRow() {
 
@@ -116,38 +139,184 @@ class Tetris {
 }
 
 class Tetrimino {
-    constructor(type) {
+    constructor(type, x, y) {
+        this.type = type;
+        this.x = x;
+        this.y = y;
 
+        //color
+        if (type == "T") {
+            this.color = [0.9, 0.33, 0.5];
+        }
+        if (type == "I") {
+            this.color = [0.88, 0.7, 1.0];
+        }
+        if (type == "O") {
+            this.color = [1.0, 1.0, 0.0];
+        }
+        if (type == "J") {
+            this.color = [0.0, 0.0, 1];
+        }
+        if (type == "L") {
+            this.color = [1.0, 0.65, 0.0];
+        }
+        if (type == "S") {
+            this.color = [0.0, 1.0, 0.0];
+        }
+        if (type == "Z") {
+            this.color = [1.0, 0.0, 0.0];
+        }
+        this.grid = this.createGrid(type);
     }
 
+    createGrid(type) {
+        var grid = []
+        if (type == "I") {
+            grid = [
+                [null, new Block(this.color), null, null],
+                [null, new Block(this.color), null, null],
+                [null, new Block(this.color), null, null],
+                [null, new Block(this.color), null, null]
+            ]
+        }
+        if (type == "L") {
+            grid = [
+                [null, new Block(this.color), null],
+                [null, new Block(this.color), null],
+                [null, new Block(this.color), new Block(this.color)]
+            ]
+        }
+        if (type == "J") {
+            grid = [
+                [null, new Block(this.color), null],
+                [null, new Block(this.color), null],
+                [new Block(this.color), new Block(this.color), null]
+            ]
+        }
+        if (type == "O") {
+            grid = [
+                [null, new Block(this.color), new Block(this.color), null],
+                [null, new Block(this.color), new Block(this.color), null],
+                [null, null, null, null],
+                [null, null, null, null]
+            ]
+        }
+        if (type == "T") {
+            grid = [
+                [null, null, null],
+                [new Block(this.color), new Block(this.color), new Block(this.color)],
+                [null, new Block(this.color), null]
+            ]
+        }
+        if (type == "S") {
+            grid = [
+                [null, new Block(this.color), new Block(this.color)],
+                [new Block(this.color), new Block(this.color), null],
+                [null, null, null]
+            ]
+        }
+        if (type == "Z") {
+            grid = [
+                [new Block(this.color), new Block(this.color), null],
+                [null, new Block(this.color), new Block(this.color)],
+                [null, null, null]
+            ]
+        }
+        return grid;
+    }
     rotate() {
-
+        //rotate matrix and update all model matrices
     }
 
     drop() {
-
+        //needs collision detection
     }
 
     moveLeft() {
-
+        //translate up xOffset and increment x pos
     }
 
     moveRight() {
-
+        //translate down xOffset and decrement x pos
     }
 
     render() {
-
+        for (let i = 0; i < 4; i++) {
+            for (let j = 0; j < 4; j++) {
+                this.grid[i][j].render();
+            }
+        }
     }
 
     moveDown() {
-
+        //translate up yOffset and increment y pos
     }
 }
 
 class Block {
-    constructor(x, y) {
-        this.x = x;
-        this.y = y;
+    constructor(color) {
+        this.color = color;
+        this.modelMat = mat4.create();
+        this.vertices = [
+            // Front face
+            0, 0, 0,
+            xOffset, 0, 0,
+            xOffset, yOffset, 0,
+            0, yOffset, 0,
+
+            // Back face
+            0.0, 0.0, xOffset,
+            xOffset, 0.0, xOffset,
+            xOffset, yOffset, xOffset,
+            0.0, xOffset, xOffset,
+
+            // Top face
+            0, yOffset, 0,
+            xOffset, yOffset, 0.0,
+            xOffset, yOffset, xOffset,
+            0, yOffset, xOffset,
+
+            // Bottom face
+            0, 0, 0,
+            xOffset, 0, 0.0,
+            xOffset, 0, xOffset,
+            0, 0, xOffset,
+
+            // Right face
+            0, 0, 0,
+            0, yOffset, 0,
+            0, 0, xOffset,
+            0, yOffset, xOffset,
+
+            // Left face
+            xOffset, 0, 0,
+            xOffset, yOffset, 0,
+            xOffset, 0, xOffset,
+            xOffset, yOffset, xOffset,
+
+        ];
+        this.indices = [
+            0,  1,  2,      0,  2,  3,    // front
+            4,  5,  6,      4,  6,  7,    // back
+            8,  9,  10,     8,  10, 11,   // top
+            12, 13, 14,     12, 14, 15,   // bottom
+            16, 17, 18,     16, 18, 19,   // right
+            20, 21, 22,     20, 22, 23,   // left
+          ];
+    }
+
+    render() {
+        gl.uniformMatrix4fv(modelUniform, false, this.modelMat);
+        gl.bindBuffer(gl.ARRAY_BUFFER, vertexBuffer);
+        gl.bufferData(gl.ARRAY_BUFFER, new Float32Array(this.vertices), gl.STATIC_DRAW); // coords to that buffer
+        gl.vertexAttribPointer(vertexAttrib, 3, gl.FLOAT, false, 0, 0);
+        gl.vertexAttribPointer(normalAttrib, 3, gl.FLOAT, false, 0, 0);
+        console.log(this.color);
+        gl.uniform3fv(colorUniform, this.color);
+        gl.bindBuffer(gl.ELEMENT_ARRAY_BUFFER, indexBuffer);
+        gl.bufferData(gl.ELEMENT_ARRAY_BUFFER, new Uint16Array(this.indices), gl.STATIC_DRAW);
+        gl.drawElements(gl.TRIANGLES, this.indices.length, gl.UNSIGNED_SHORT, 0);
+
+        //draw white outline around block sides
     }
 }
