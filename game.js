@@ -61,7 +61,7 @@ function setupShaders() {
             aVertexNormal;
             vec4 newPos = model * vec4(aVertexPosition, 1.0);
             vWorldPos = newPos.xyz;
-            vVertexNormal = normalize(newPos.xyz);
+            vVertexNormal = normalize(aVertexNormal);
             gl_Position = viewProj * newPos;
         }`;
 
@@ -80,7 +80,7 @@ function setupShaders() {
             vec3 lightA = vec3(1.0, 1.0, 1.0);
             vec3 lightD = vec3(1.0, 1.0, 1.0);
             vec3 lightS = vec3(1.0, 1.0, 1.0);
-            vec3 lightPos = vec3(1000, 600, 400);
+            vec3 lightPos = vec3(1024 / 2, 576 / 2, 600);
             
             // ambient term
             vec3 ambient = ambientU*lightA; 
@@ -158,6 +158,7 @@ function setupGrid() {
 function renderGrid() {
     window.requestAnimationFrame(renderGrid);
     gl.clear(gl.COLOR_BUFFER_BIT | gl.DEPTH_BUFFER_BIT); // clear frame/depth buffers
+    tetris.gameOver();
     tetris.render();
 } // end render triangles
 function main() {
@@ -177,5 +178,8 @@ function autoMovePiece() {
             tetris.player.y--;
         }
         setTimeout(autoMovePiece, 1000);
+    } else {
+        console.log('game over');
+        window.cancelAnimationFrame(renderGrid);
     }
 }

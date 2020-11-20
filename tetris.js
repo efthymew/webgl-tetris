@@ -40,21 +40,21 @@ class Tetris {
         this.normals = [];
         this.backgroundVertices.push(this.width, 0, this.depth, 0, 0, this.depth, this.width, this.height, this.depth, 0, this.height, this.depth);
         for (let i = 0; i < 4; i++) {
-            this.normals.push(0, 0, -1);
+            this.normals.push(0, 0, 1);
         }
         //add width gridlines to vertices
         for (let i = 0; i <= 10; i++) {
             this.backgroundVertices.push(gridOffset + xOffset * i, this.height, this.depth - 1);
             this.backgroundVertices.push(gridOffset + xOffset * i, 0, this.depth - 1);
-            this.normals.push(0, 0, -1);
-            this.normals.push(0, 0, -1);
+            this.normals.push(0, 0, 1);
+            this.normals.push(0, 0, 1);
         }
         //add height gridlines
         for (let i = 0; i <= 20; i++) {
             this.backgroundVertices.push(gridOffset, yOffset * i, this.depth - 1);
             this.backgroundVertices.push(2 * gridOffset, yOffset * i, this.depth - 1);
-            this.normals.push(0, 0, -1);
-            this.normals.push(0, 0, -1);
+            this.normals.push(0, 0, 1);
+            this.normals.push(0, 0, 1);
         }
         //console.log(this.backgroundVertices);
         this.backgroundIndices.push(0, 1, 2, 2, 1, 3);
@@ -98,9 +98,14 @@ class Tetris {
 
     }
     gameOver() {
+        //console.log('checking');
         for (let i = 0; i < 10; i++) {
-            
+            if (this.grid[i][19] != null) {
+                gameOver = true;
+                return;
+            }
         }
+        gameOver = false;
     }
     createGrid(width, height) {
         //10 by 20
@@ -214,6 +219,9 @@ class Tetris {
                     for (let j = 0; j < 4; j++) {
                         if (piece.grid[i][j] != null) {
                             const newJ = j + piece.y - 1;
+                            if (i + piece.x < 0 || i + piece.x > 9) {
+                                continue;
+                            }
                             if (newJ < 0) {
                                 return true;
                             } else if (this.grid[i + piece.x][newJ] != null) {
@@ -227,6 +235,9 @@ class Tetris {
                     for (let j = 0; j < 3; j++) {
                         if (piece.grid[i][j] != null) {
                             const newJ = j + piece.y - 1;
+                            if (i + piece.x < 0 || i + piece.x > 9) {
+                                continue;
+                            }
                             if (newJ < 0) {
                                 return true;
                             } else if (this.grid[i + piece.x][newJ] != null) {
@@ -243,6 +254,9 @@ class Tetris {
                     for (let j = 0; j < 4; j++) {
                         if (piece.grid[i][j] != null) {
                             const newI = i + piece.x + 1;
+                            if (i + piece.x < 0) {
+                                continue;
+                            }
                             if (newI > 9) {
                                 return true;
                             } else if (this.grid[newI][j + piece.y] != null) {
@@ -256,6 +270,9 @@ class Tetris {
                     for (let j = 0; j < 3; j++) {
                         if (piece.grid[i][j] != null) {
                             const newI = i + piece.x + 1;
+                            if (i + piece.x < 0) {
+                                continue;
+                            }
                             if (newI > 9) {
                                 return true;
                             } else if (this.grid[newI][j + piece.y] != null) {
@@ -272,6 +289,9 @@ class Tetris {
                     for (let j = 0; j < 4; j++) {
                         if (piece.grid[i][j] != null) {
                             const newI = i + piece.x - 1;
+                            if (i + piece.x > 9) {
+                                continue;
+                            }
                             if (newI < 0) {
                                 return true;
                             } else if (this.grid[newI][j + piece.y] != null) {
@@ -285,6 +305,9 @@ class Tetris {
                     for (let j = 0; j < 3; j++) {
                         if (piece.grid[i][j] != null) {
                             const newI = i + piece.x - 1;
+                            if (i + piece.x > 9) {
+                                continue;
+                            }
                             if (newI < 0) {
                                 return true;
                             } else if (this.grid[newI][j + piece.y] != null) {
@@ -305,6 +328,7 @@ class Tetris {
         gl.vertexAttribPointer(vertexAttrib, 3, gl.FLOAT, false, 0, 0);
         gl.bindBuffer(gl.ARRAY_BUFFER, normalBuffer);
         gl.bufferData(gl.ARRAY_BUFFER, new Float32Array(this.normals), gl.STATIC_DRAW); // coords to that buffer
+        //console.log(this.normals);
         gl.vertexAttribPointer(normalAttrib, 3, gl.FLOAT, false, 0, 0);
         gl.uniform3fv(diffuseUniform, [0.86, 0.86, 0.86]);
         gl.uniform3fv(ambientUniform, [0.1, 0.1, 0.1]);
@@ -488,16 +512,16 @@ class Block {
 
         this.normals = [
             // Front face
-            0, 0, -1,
-            0, 0, -1,
-            0, 0, -1,
-            0, 0, -1,
+            0, 0, 1,
+            0, 0, 1,
+            0, 0, 1,
+            0, 0, 1,
 
             // Back face
-            0, 0, 1,
-            0, 0, 1,
-            0, 0, 1,
-            0, 0, 1,
+            0, 0, -1,
+            0, 0, -1,
+            0, 0, -1,
+            0, 0, -1,
 
             // Top face
             0, 1, 0,

@@ -1,6 +1,6 @@
 //file with user input stuff
 function onKeyDown(e) {
-    if (tetris.player == null) {
+    if (tetris.player == null || gameOver) {
         return;
     }
     switch (e.code) {
