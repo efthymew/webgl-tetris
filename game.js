@@ -12,14 +12,20 @@ var specularUniform;
 var viewUniform;
 var modelUniform;
 var samplerUniform;
-var colorUniform;
 
+var diffuseUniform;
+var ambientUniform;
+var specularUniform;
+
+var eyeUniform;
 var vertexAttrib;
 var normalAttrib;
 var uvAttrib;
+
+var gameOver = false;
 // set up the webGL environment
 function setupWebGL() {
-
+    document.onkeypress = onKeyDown;
     // Get the canvas and context
     var canvas = document.getElementById("myWebGLCanvas"); // create a js canvas
     gl = canvas.getContext("webgl"); // get a webgl object from it
@@ -48,17 +54,52 @@ function setupShaders() {
         uniform mat4 model; // the model matrix
         uniform mat4 viewProj; // the project view model matrix
 
+        varying vec3 vWorldPos; // interpolated world position of vertex
+        varying vec3 vVertexNormal; // interpolated normal for frag shader
+
         void main(void) {
             aVertexNormal;
-            gl_Position = viewProj * model * vec4(aVertexPosition, 1.0);
+            vec4 newPos = model * vec4(aVertexPosition, 1.0);
+            vWorldPos = newPos.xyz;
+            vVertexNormal = normalize(newPos.xyz);
+            gl_Position = viewProj * newPos;
         }`;
 
     // define fragment shader in essl using es6 template strings
     var fShaderCode = `
         precision mediump float; // set float to medium precision
-        uniform vec3 colorU;
+        uniform vec3 diffuseU;
+        uniform vec3 ambientU;
+        uniform vec3 specularU;
+        uniform vec3 eyeLoc;
+
+        varying vec3 vWorldPos; // interpolated world position of vertex
+        varying vec3 vVertexNormal; // interpolated normal for frag shader
+
         void main(void) {
-            gl_FragColor = vec4(colorU, 1.0);
+            vec3 lightA = vec3(1.0, 1.0, 1.0);
+            vec3 lightD = vec3(1.0, 1.0, 1.0);
+            vec3 lightS = vec3(1.0, 1.0, 1.0);
+            vec3 lightPos = vec3(1000, 600, 400);
+            
+            // ambient term
+            vec3 ambient = ambientU*lightA; 
+            
+            // diffuse term
+            vec3 normal = normalize(vVertexNormal); 
+            vec3 light = normalize(lightPos - vWorldPos);
+            float lambert = max(0.0,dot(normal,light));
+            vec3 diffuse = diffuseU*lightD*lambert; // diffuse term
+            
+            // specular term
+            vec3 eye = normalize(eyeLoc - vWorldPos);
+            vec3 halfVec = normalize(light+eye);
+            float highlight = pow(max(0.0,dot(normal,halfVec)),100.0);
+            vec3 specular = specularU*lightS*highlight; // specular term
+            
+            // combine to output color
+            vec3 colorOut = ambient + diffuse + specular; // no specular yet
+            gl_FragColor = vec4(colorOut, 1.0);
         }`;
 
     try {
@@ -94,9 +135,12 @@ function setupShaders() {
                 gl.enableVertexAttribArray(normalAttrib); // connect attrib to array
                 // locate vertex uniforms
                 modelUniform = gl.getUniformLocation(shaderProgram, "model"); // ptr to mmat
-                colorUniform = gl.getUniformLocation(shaderProgram, "colorU");
+                diffuseUniform = gl.getUniformLocation(shaderProgram, "diffuseU");
+                ambientUniform = gl.getUniformLocation(shaderProgram, "ambientU");
+                specularUniform = gl.getUniformLocation(shaderProgram, "specularU");
                 viewUniform = gl.getUniformLocation(shaderProgram, "viewProj"); // ptr to pvmmat
                 samplerUniform = gl.getUniformLocation(shaderProgram, "uSampler");
+                eyeUniform = gl.getUniformLocation(shaderProgram, "eyeLoc");
             } // end if no shader program link errors
         } // end if no compile errors
     } // end try 
@@ -112,6 +156,7 @@ function setupGrid() {
 }
 
 function renderGrid() {
+    window.requestAnimationFrame(renderGrid);
     gl.clear(gl.COLOR_BUFFER_BIT | gl.DEPTH_BUFFER_BIT); // clear frame/depth buffers
     tetris.render();
 } // end render triangles
@@ -120,4 +165,17 @@ function main() {
     setupShaders();
     setupGrid();
     renderGrid();
+    autoMovePiece();
 } // end main
+
+function autoMovePiece() {
+    if (!gameOver) {
+        if (tetris.willCollide("down")) {
+            tetris.plantOnGrid(tetris.player);
+            tetris.newPlayerPiece();
+        } else {
+            tetris.player.y--;
+        }
+        setTimeout(autoMovePiece, 1000);
+    }
+}

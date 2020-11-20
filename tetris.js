@@ -4,8 +4,10 @@ var yOffset;
 var vertexBuffer;
 var normalBuffer;
 var indexBuffer;
+var pieces = ["I", "T", "L", "J", "S", "Z", "O"];
 class Tetris {
-    constructor(canvasWidth, canvasHeight, background = "http://github.ncsu.edu/gefthym/prog5csc461/blob/master/resources/galaxy.jpg") {
+    constructor(canvasWidth, canvasHeight) {
+        this.player = null
         gl.enable(gl.BLEND)
         gl.blendFunc(gl.SRC_ALPHA, gl.ONE_MINUS_SRC_ALPHA);
         //this.backgroundTexture = loadTexture(background);
@@ -17,6 +19,7 @@ class Tetris {
         normalBuffer = gl.createBuffer();
         indexBuffer = gl.createBuffer();
         this.backgroundVertices = [];
+        this.normals = [];
         this.backgroundIndices = [];
         this.grid = this.createGrid(width, height);
         this.eye = vec3.fromValues(width / 2, this.height / 2, 0);
@@ -27,24 +30,77 @@ class Tetris {
         var perspective = mat4.ortho(mat4.create(), -this.width + (this.width / 2), this.width / 2, -this.height + (this.height / 2), this.height / 2, 0, this.depth + 1);
         mat4.multiply(this.viewMatrix, perspective, this.viewMatrix);
         this.initializeBackground();
+        const piece = pieces[Math.floor(Math.random() * pieces.length)];
+        this.player = new Tetrimino(piece, 4, 18);
+        gl.uniform3fv(eyeUniform, this.eye);
     }
     initializeBackground() {
+        this.backgroundVertices = [];
+        this.backgroundIndices = [];
+        this.normals = [];
         this.backgroundVertices.push(this.width, 0, this.depth, 0, 0, this.depth, this.width, this.height, this.depth, 0, this.height, this.depth);
+        for (let i = 0; i < 4; i++) {
+            this.normals.push(0, 0, -1);
+        }
         //add width gridlines to vertices
         for (let i = 0; i <= 10; i++) {
             this.backgroundVertices.push(gridOffset + xOffset * i, this.height, this.depth - 1);
             this.backgroundVertices.push(gridOffset + xOffset * i, 0, this.depth - 1);
+            this.normals.push(0, 0, -1);
+            this.normals.push(0, 0, -1);
         }
         //add height gridlines
         for (let i = 0; i <= 20; i++) {
             this.backgroundVertices.push(gridOffset, yOffset * i, this.depth - 1);
             this.backgroundVertices.push(2 * gridOffset, yOffset * i, this.depth - 1);
+            this.normals.push(0, 0, -1);
+            this.normals.push(0, 0, -1);
         }
-        console.log(this.backgroundVertices);
+        //console.log(this.backgroundVertices);
         this.backgroundIndices.push(0, 1, 2, 2, 1, 3);
+    }
+    clearRows() {
+        for (let y = 0; y < 20; y++) {
+            let count = 0;
+            for (let x = 0; x < 10; x++) {
+                if (this.grid[x][y] == null) {
+                    break;
+                } else {
+                    count++;
+                }
+            }
+            if (count == 10) {
+                //clear row
+                if (y == 19) {
+                    for (let i = 0; i < 10; i++) {
+                        this.grid[i][y] = null;
+                    }
+                } else {
+                    for (let j = y; j < 20; j++) {
+                        for (let i = 0; i < 10; i++) {
+                            this.grid[i][j] = this.grid[i][j + 1];
+                            if (this.grid[i][j] != null) {
+                                mat4.translate(this.grid[i][j].modelMat, this.grid[i][j].modelMat, vec3.fromValues(0, -yOffset, 0));
+                            }
+                        }
+                    }
+                    //decrement y to recheck dropped pieces
+                    y--;
+                }
+            }
+        }
+    }
+    newPlayerPiece() {
+        const piece = pieces[Math.floor(Math.random() * pieces.length)];
+        this.player = new Tetrimino(piece, 4, 18);
     }
     addTetrimino(type) {
 
+    }
+    gameOver() {
+        for (let i = 0; i < 10; i++) {
+            
+        }
     }
     createGrid(width, height) {
         //10 by 20
@@ -58,13 +114,47 @@ class Tetris {
         return grid;
     }
     render() {
-        console.log('render');
+        //window.requestAnimationFrame(this.render);
+        //console.log('render');
+        //if piece will collide now plant it down and spawn new piece
         gl.uniformMatrix4fv(viewUniform, false, this.viewMatrix);
+        this.initializeBackground();
         this.renderBackground();
         this.renderUI();
         //test render block at block index 0, 0
-        this.plantOnGrid(new Tetrimino("T", 4, 16));
+        //this.plantOnGrid(new Tetrimino("T", 4, 16));
+        tetris.clearRows();
         this.renderBlocks();
+        this.renderPlayer();
+        //window.requestAnimationFrame(this.render);
+    }
+
+    renderPlayer() {
+        if (this.player != null) {
+            if (this.player.type == "O" || this.player.type == "I") {
+                for (let i = 0; i < 4; i++) {
+                    for (let j = 0; j < 4; j++) {
+                        if (this.player.grid[i][j] != null) {
+                            this.player.grid[i][j].modelMat = mat4.fromTranslation(mat4.create(),
+                                    vec3.fromValues(xOffset*this.player.x + xOffset*i + gridOffset,
+                                            yOffset*this.player.y + yOffset*j, 0));
+                            this.player.grid[i][j].render();
+                        }
+                    }
+                }
+            } else {
+                for (let i = 0; i < 3; i++) {
+                    for (let j = 0; j < 3; j++) {
+                        if (this.player.grid[i][j] != null) {
+                            this.player.grid[i][j].modelMat = mat4.fromTranslation(mat4.create(),
+                                vec3.fromValues(xOffset*this.player.x + xOffset*i + gridOffset,
+                                            yOffset*this.player.y + yOffset*j, 0));
+                            this.player.grid[i][j].render();
+                        }
+                    }
+                }
+            }
+        }
     }
     plantOnGrid(tetrimino) {
         if (tetrimino.type == "O" || tetrimino.type == "I") {
@@ -72,7 +162,10 @@ class Tetris {
                 for (let j = 0; j < 4; j++) {
                     let x = tetrimino.x + i;
                     let y = tetrimino.y + j;
-                    this.grid[x][y] = tetrimino.grid[i][j];
+                    if (x > 9 || x < 0) continue;
+                    if (y < 0) continue;
+                    if (this.grid[x][y] == null)
+                        this.grid[x][y] = tetrimino.grid[i][j];
                     if (this.grid[x][y] != null) {
                         this.grid[x][y].modelMat = mat4.fromTranslation(mat4.create(),
                             vec3.fromValues(xOffset*tetrimino.x + xOffset*i + gridOffset,
@@ -85,7 +178,10 @@ class Tetris {
                 for (let j = 0; j < 3; j++) {
                     let x = tetrimino.x + i;
                     let y = tetrimino.y + j;
-                    this.grid[x][y] = tetrimino.grid[i][j];
+                    if (x > 9 || x < 0) continue;
+                    if (y < 0) continue;
+                    if (this.grid[x][y] == null)
+                        this.grid[x][y] = tetrimino.grid[i][j];
                     if (this.grid[x][y] != null) {
                         this.grid[x][y].modelMat = mat4.fromTranslation(mat4.create(),
                             vec3.fromValues(xOffset*tetrimino.x + xOffset*i + gridOffset,
@@ -99,7 +195,7 @@ class Tetris {
         for (let i = 0; i < 10; i++) {
             for (let j = 0; j < 20; j++) {
                 if (this.grid[i][j] != null) {
-                    console.log(this.grid[i][j]);
+                    //console.log(this.grid[i][j]);
                     this.grid[i][j].render();
                 }
             }
@@ -109,19 +205,116 @@ class Tetris {
 
     }
 
+    willCollide(dir) {
+        const piece = this.player;
+        if (piece == null) return;
+        if (dir == "down") {
+            if (piece.type == "O" || piece.type == "I") {
+                for (let i = 0; i < 4; i++) {
+                    for (let j = 0; j < 4; j++) {
+                        if (piece.grid[i][j] != null) {
+                            const newJ = j + piece.y - 1;
+                            if (newJ < 0) {
+                                return true;
+                            } else if (this.grid[i + piece.x][newJ] != null) {
+                                return true;
+                            }
+                        }
+                    }
+                }
+            } else {
+                for (let i = 0; i < 3; i++) {
+                    for (let j = 0; j < 3; j++) {
+                        if (piece.grid[i][j] != null) {
+                            const newJ = j + piece.y - 1;
+                            if (newJ < 0) {
+                                return true;
+                            } else if (this.grid[i + piece.x][newJ] != null) {
+                                return true;
+                            }
+                        }
+                    }
+                }
+            }
+        }
+        if (dir == "left") {
+            if (piece.type == "O" || piece.type == "I") {
+                for (let i = 0; i < 4; i++) {
+                    for (let j = 0; j < 4; j++) {
+                        if (piece.grid[i][j] != null) {
+                            const newI = i + piece.x + 1;
+                            if (newI > 9) {
+                                return true;
+                            } else if (this.grid[newI][j + piece.y] != null) {
+                                return true;
+                            }
+                        }
+                    }
+                }
+            } else {
+                for (let i = 0; i < 3; i++) {
+                    for (let j = 0; j < 3; j++) {
+                        if (piece.grid[i][j] != null) {
+                            const newI = i + piece.x + 1;
+                            if (newI > 9) {
+                                return true;
+                            } else if (this.grid[newI][j + piece.y] != null) {
+                                return true;
+                            }
+                        }
+                    }
+                }
+            }
+        }
+        if (dir == "right") {
+            if (piece.type == "O" || piece.type == "I") {
+                for (let i = 0; i < 4; i++) {
+                    for (let j = 0; j < 4; j++) {
+                        if (piece.grid[i][j] != null) {
+                            const newI = i + piece.x - 1;
+                            if (newI < 0) {
+                                return true;
+                            } else if (this.grid[newI][j + piece.y] != null) {
+                                return true;
+                            }
+                        }
+                    }
+                }
+            } else {
+                for (let i = 0; i < 3; i++) {
+                    for (let j = 0; j < 3; j++) {
+                        if (piece.grid[i][j] != null) {
+                            const newI = i + piece.x - 1;
+                            if (newI < 0) {
+                                return true;
+                            } else if (this.grid[newI][j + piece.y] != null) {
+                                return true;
+                            }
+                        }
+                    }
+                }
+            }
+        }
+        return false;
+    }
+
     renderBackground() {
         gl.uniformMatrix4fv(modelUniform, false, mat4.create());
         gl.bindBuffer(gl.ARRAY_BUFFER, vertexBuffer);
         gl.bufferData(gl.ARRAY_BUFFER, new Float32Array(this.backgroundVertices), gl.STATIC_DRAW); // coords to that buffer
         gl.vertexAttribPointer(vertexAttrib, 3, gl.FLOAT, false, 0, 0);
+        gl.bindBuffer(gl.ARRAY_BUFFER, normalBuffer);
+        gl.bufferData(gl.ARRAY_BUFFER, new Float32Array(this.normals), gl.STATIC_DRAW); // coords to that buffer
         gl.vertexAttribPointer(normalAttrib, 3, gl.FLOAT, false, 0, 0);
-        gl.uniform3fv(colorUniform, [0.86, 0.86, 0.86]);
+        gl.uniform3fv(diffuseUniform, [0.86, 0.86, 0.86]);
+        gl.uniform3fv(ambientUniform, [0.1, 0.1, 0.1]);
+        gl.uniform3fv(specularUniform, [0.3, 0.3, 0.3]);
         gl.bindBuffer(gl.ELEMENT_ARRAY_BUFFER, indexBuffer);
         gl.bufferData(gl.ELEMENT_ARRAY_BUFFER, new Uint16Array(this.backgroundIndices), gl.STATIC_DRAW);
         gl.drawElements(gl.TRIANGLES, this.backgroundIndices.length, gl.UNSIGNED_SHORT, 0);
 
         //gridlines
-        gl.uniform3fv(colorUniform, [0, 0, 0]);
+        gl.uniform3fv(diffuseUniform, [0, 0, 0]);
         this.backgroundIndices = [];
         for (let i = 1; i <= 22; i++) {
             this.backgroundIndices.push(3 + i);
@@ -224,20 +417,21 @@ class Tetrimino {
         }
         return grid;
     }
+
     rotate() {
-        //rotate matrix and update all model matrices
-    }
-
-    drop() {
-        //needs collision detection
-    }
-
-    moveLeft() {
-        //translate up xOffset and increment x pos
-    }
-
-    moveRight() {
-        //translate down xOffset and decrement x pos
+        if (this.type == "O") return;
+        const n = this.grid.length;
+        const x = Math.floor(n / 2);
+        const y = n - 1;
+        for (let i = 0; i < x; i++) {
+            for (let j = i; j < y - i; j++) {
+                let k = this.grid[i][j];
+                this.grid[i][j] = this.grid[y - j][i];
+                this.grid[y - j][i] = this.grid[y - i][y - j];
+                this.grid[y - i][y - j] = this.grid[j][y - i]
+                this.grid[j][y - i] = k
+            }
+        }
     }
 
     render() {
@@ -246,10 +440,6 @@ class Tetrimino {
                 this.grid[i][j].render();
             }
         }
-    }
-
-    moveDown() {
-        //translate up yOffset and increment y pos
     }
 }
 
@@ -268,7 +458,7 @@ class Block {
             0.0, 0.0, xOffset,
             xOffset, 0.0, xOffset,
             xOffset, yOffset, xOffset,
-            0.0, xOffset, xOffset,
+            0.0, yOffset, xOffset,
 
             // Top face
             0, yOffset, 0,
@@ -295,6 +485,45 @@ class Block {
             xOffset, yOffset, xOffset,
 
         ];
+
+        this.normals = [
+            // Front face
+            0, 0, -1,
+            0, 0, -1,
+            0, 0, -1,
+            0, 0, -1,
+
+            // Back face
+            0, 0, 1,
+            0, 0, 1,
+            0, 0, 1,
+            0, 0, 1,
+
+            // Top face
+            0, 1, 0,
+            0, 1, 0.0,
+            0, 1, 0,
+            0, 1, 0,
+
+            // Bottom face
+            0, -1, 0,
+            0, -1, 0.0,
+            0, -1, 0,
+            0, -1, 0,
+
+            // Right face
+            -1, 0, 0,
+            -1, 0, 0,
+            -1, 0, 0,
+            -1, 0, 0,
+
+            // Left face
+            1, 0, 0,
+            1, 0, 0,
+            1, 0, 0,
+            1, 0, 0,
+
+        ];
         this.indices = [
             0,  1,  2,      0,  2,  3,    // front
             4,  5,  6,      4,  6,  7,    // back
@@ -310,9 +539,13 @@ class Block {
         gl.bindBuffer(gl.ARRAY_BUFFER, vertexBuffer);
         gl.bufferData(gl.ARRAY_BUFFER, new Float32Array(this.vertices), gl.STATIC_DRAW); // coords to that buffer
         gl.vertexAttribPointer(vertexAttrib, 3, gl.FLOAT, false, 0, 0);
+        gl.bindBuffer(gl.ARRAY_BUFFER, normalBuffer);
+        gl.bufferData(gl.ARRAY_BUFFER, new Float32Array(this.normals), gl.STATIC_DRAW); // coords to that buffer
         gl.vertexAttribPointer(normalAttrib, 3, gl.FLOAT, false, 0, 0);
-        console.log(this.color);
-        gl.uniform3fv(colorUniform, this.color);
+        //console.log(this.color);
+        gl.uniform3fv(diffuseUniform, this.color);
+        gl.uniform3fv(ambientUniform, [0.1, 0.1, 0.1]);
+        gl.uniform3fv(specularUniform, [0.3, 0.3, 0.3]);
         gl.bindBuffer(gl.ELEMENT_ARRAY_BUFFER, indexBuffer);
         gl.bufferData(gl.ELEMENT_ARRAY_BUFFER, new Uint16Array(this.indices), gl.STATIC_DRAW);
         gl.drawElements(gl.TRIANGLES, this.indices.length, gl.UNSIGNED_SHORT, 0);
