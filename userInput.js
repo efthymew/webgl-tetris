@@ -1,3 +1,10 @@
+/**
+ * PROG5 - Tetris in WebGL by Graham Efthymiou
+ * CSC461 Fall 2020
+ * gefthym
+ * userInput.js
+ */
+
 //file with user input stuff
 function onKeyDown(e) {
     if (tetris.player == null || gameOver) {

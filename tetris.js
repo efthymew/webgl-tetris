@@ -1,3 +1,10 @@
+/**
+ * PROG5 - Tetris in WebGL by Graham Efthymiou
+ * CSC461 Fall 2020
+ * gefthym
+ * tetris.js
+ */
+
 var gridOffset;
 var xOffset;
 var yOffset;
@@ -6,7 +13,7 @@ var normalBuffer;
 var indexBuffer;
 var pieces = ["I", "T", "L", "J", "S", "Z", "O"];
 class Tetris {
-    constructor(canvasWidth, canvasHeight) {
+    constructor(canvasWidth, canvasHeight, threeD) {
         this.player = null
         gl.enable(gl.BLEND)
         gl.blendFunc(gl.SRC_ALPHA, gl.ONE_MINUS_SRC_ALPHA);
@@ -22,13 +29,22 @@ class Tetris {
         this.normals = [];
         this.backgroundIndices = [];
         this.grid = this.createGrid(width, height);
-        this.eye = vec3.fromValues(width / 2, this.height / 2, 0);
         gridOffset = width / 3;
         xOffset = (width / 3) / 10;
         yOffset = height / 20;
-        this.viewMatrix = mat4.lookAt(mat4.create(), this.eye, vec3.fromValues(width / 2, this.height / 2, 1), vec3.fromValues(0, 1, 0));
-        var perspective = mat4.ortho(mat4.create(), -this.width + (this.width / 2), this.width / 2, -this.height + (this.height / 2), this.height / 2, 0, this.depth + 1);
-        mat4.multiply(this.viewMatrix, perspective, this.viewMatrix);
+        var projection;
+        if (!threeD) {
+            this.eye = vec3.fromValues(width / 2, this.height / 2, 0);
+            this.viewMatrix = mat4.lookAt(mat4.create(), this.eye, vec3.fromValues(width / 2, this.height / 2, this.depth), vec3.fromValues(0, 1, 0));
+            //ortho
+            projection = mat4.ortho(mat4.create(), -this.width + (this.width / 2), this.width / 2, -this.height + (this.height / 2), this.height / 2, 0, this.depth + 1);
+        } else {
+            this.eye = vec3.fromValues(width / 2, this.height / 2, 0);
+            this.viewMatrix = mat4.lookAt(mat4.create(), this.eye, vec3.fromValues(width / 2, this.height / 2, this.depth), vec3.fromValues(0, 1, 0));
+            //perspective
+            projection = mat4.perspective(mat4.create(), Math.PI / 1.09, width / height, 0.1, this.width);
+        }
+        mat4.multiply(this.viewMatrix, projection, this.viewMatrix);
         this.initializeBackground();
         const piece = pieces[Math.floor(Math.random() * pieces.length)];
         this.player = new Tetrimino(piece, 4, 18);
@@ -142,7 +158,7 @@ class Tetris {
                         if (this.player.grid[i][j] != null) {
                             this.player.grid[i][j].modelMat = mat4.fromTranslation(mat4.create(),
                                     vec3.fromValues(xOffset*this.player.x + xOffset*i + gridOffset,
-                                            yOffset*this.player.y + yOffset*j, 0));
+                                            yOffset*this.player.y + yOffset*j, this.depth - 4));
                             this.player.grid[i][j].render();
                         }
                     }
@@ -153,7 +169,7 @@ class Tetris {
                         if (this.player.grid[i][j] != null) {
                             this.player.grid[i][j].modelMat = mat4.fromTranslation(mat4.create(),
                                 vec3.fromValues(xOffset*this.player.x + xOffset*i + gridOffset,
-                                            yOffset*this.player.y + yOffset*j, 0));
+                                            yOffset*this.player.y + yOffset*j, this.depth - 4));
                             this.player.grid[i][j].render();
                         }
                     }
@@ -174,7 +190,7 @@ class Tetris {
                     if (this.grid[x][y] != null) {
                         this.grid[x][y].modelMat = mat4.fromTranslation(mat4.create(),
                             vec3.fromValues(xOffset*tetrimino.x + xOffset*i + gridOffset,
-                                            yOffset*tetrimino.y + yOffset*j, this.depth - xOffset));
+                                            yOffset*tetrimino.y + yOffset*j, this.depth - 4));
                     }
                 }
             }
@@ -190,7 +206,7 @@ class Tetris {
                     if (this.grid[x][y] != null) {
                         this.grid[x][y].modelMat = mat4.fromTranslation(mat4.create(),
                             vec3.fromValues(xOffset*tetrimino.x + xOffset*i + gridOffset,
-                                            yOffset*tetrimino.y + yOffset*j, this.depth - xOffset));
+                                            yOffset*tetrimino.y + yOffset*j, this.depth - 4));
                     }
                 }
             }
@@ -335,10 +351,11 @@ class Tetris {
         gl.uniform3fv(specularUniform, [0.3, 0.3, 0.3]);
         gl.bindBuffer(gl.ELEMENT_ARRAY_BUFFER, indexBuffer);
         gl.bufferData(gl.ELEMENT_ARRAY_BUFFER, new Uint16Array(this.backgroundIndices), gl.STATIC_DRAW);
-        gl.drawElements(gl.TRIANGLES, this.backgroundIndices.length, gl.UNSIGNED_SHORT, 0);
+        //don't render background its ugly
+        //gl.drawElements(gl.TRIANGLES, this.backgroundIndices.length, gl.UNSIGNED_SHORT, 0);
 
         //gridlines
-        gl.uniform3fv(diffuseUniform, [0, 0, 0]);
+        gl.uniform3fv(diffuseUniform, [1, 1, 1]);
         this.backgroundIndices = [];
         for (let i = 1; i <= 22; i++) {
             this.backgroundIndices.push(3 + i);
@@ -479,34 +496,34 @@ class Block {
             0, yOffset, 0,
 
             // Back face
-            0.0, 0.0, xOffset,
-            xOffset, 0.0, xOffset,
-            xOffset, yOffset, xOffset,
-            0.0, yOffset, xOffset,
+            0.0, 0.0, 3,
+            xOffset, 0.0, 3,
+            xOffset, yOffset, 3,
+            0.0, yOffset, 3,
 
             // Top face
             0, yOffset, 0,
             xOffset, yOffset, 0.0,
-            xOffset, yOffset, xOffset,
-            0, yOffset, xOffset,
+            xOffset, yOffset, 3,
+            0, yOffset, 3,
 
             // Bottom face
             0, 0, 0,
             xOffset, 0, 0.0,
-            xOffset, 0, xOffset,
-            0, 0, xOffset,
+            xOffset, 0, 3,
+            0, 0, 3,
 
             // Right face
             0, 0, 0,
             0, yOffset, 0,
-            0, 0, xOffset,
-            0, yOffset, xOffset,
+            0, 0, 3,
+            0, yOffset, 3,
 
             // Left face
             xOffset, 0, 0,
             xOffset, yOffset, 0,
-            xOffset, 0, xOffset,
-            xOffset, yOffset, xOffset,
+            xOffset, 0, 3,
+            xOffset, yOffset, 3,
 
         ];
 
@@ -553,8 +570,8 @@ class Block {
             4,  5,  6,      4,  6,  7,    // back
             8,  9,  10,     8,  10, 11,   // top
             12, 13, 14,     12, 14, 15,   // bottom
-            16, 17, 18,     16, 18, 19,   // right
-            20, 21, 22,     20, 22, 23,   // left
+            16, 17, 18,     17, 18, 19,   // right
+            20, 21, 22,     21, 22, 23,   // left
           ];
     }
 

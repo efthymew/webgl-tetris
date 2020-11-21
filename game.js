@@ -1,3 +1,10 @@
+/**
+ * PROG5 - Tetris in WebGL by Graham Efthymiou
+ * CSC461 Fall 2020
+ * gefthym
+ * game.js
+ */
+
 const width = 1024
 const height = 576
 /* webgl globals */
@@ -151,7 +158,8 @@ function setupShaders() {
 }
 
 function setupGrid() {
-    tetris = new Tetris(width, height);
+    //third param is whether u want the game in real 3d or not (ortho vs perspective)
+    tetris = new Tetris(width, height, true);
 
 }
 
