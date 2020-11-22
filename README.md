@@ -12,3 +12,5 @@ All Grading parts are completed
  * line clears
 
  Controls: A=left D=right S=down W=rotate spacebar=immediate drop
+ Speed is increased 25% every minute you play
+ Rotation is like NES Tetris

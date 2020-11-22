@@ -144,7 +144,6 @@ class Tetris {
         this.renderUI();
         //test render block at block index 0, 0
         //this.plantOnGrid(new Tetrimino("T", 4, 16));
-        tetris.clearRows();
         this.renderBlocks();
         //if game is over dont render player
         if (!gameOver) {
@@ -223,6 +222,7 @@ class Tetris {
                 }
             }
         }
+        tetris.clearRows();
     }
     renderBlocks() {
         for (let i = 0; i < 10; i++) {
