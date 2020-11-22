@@ -146,7 +146,19 @@ class Tetris {
         //this.plantOnGrid(new Tetrimino("T", 4, 16));
         tetris.clearRows();
         this.renderBlocks();
-        this.renderPlayer();
+        //if game is over dont render player
+        if (!gameOver) {
+            this.renderPlayer();
+        } else {
+            //render game over text
+            var canvas = document.getElementById("otherCanvas");
+            //console.log(canvas);
+            var ctx = canvas.getContext("2d");
+            //console.log(ctx);
+            ctx.font = "80pt Calibri";
+            ctx.fillStyle = 'white';
+            ctx.fillText("GAME OVER!", width / 4.5, height / 2);
+        }
         //window.requestAnimationFrame(this.render);
     }
 
@@ -225,7 +237,33 @@ class Tetris {
     renderUI() {
 
     }
+    rotate() {
+        // square doesnt rotate
+        if (this.player.type == "O") return;
+        const rotatedGrid = this.player.rotate();
+        if (this.validRotate(rotatedGrid)) {
+            this.player.grid = rotatedGrid;
+        }
+    }
 
+    validRotate(grid) {
+        for (let i = 0; i < grid.length; i++) {
+            for (let j = 0; j < grid[i].length; j++) {
+                //if this new space and grid space overlap no rotate
+                if (grid[i][j] != null) {
+                    const realI = i + this.player.x;
+                    const realJ = j + this.player.y;
+                    if (realJ > 19) continue;
+                    if (realI < 0 || realI > 9 || realJ < 0) {
+                        return false;
+                    } else if (this.grid[realI][realJ] != null) {
+                        return false;
+                    }
+                }
+            }
+        }
+        return true;
+    }
     willCollide(dir) {
         const piece = this.player;
         if (piece == null) return;
@@ -460,19 +498,22 @@ class Tetrimino {
     }
 
     rotate() {
-        if (this.type == "O") return;
+        var newGrid = this.grid.map(function(arr) {
+            return arr.slice();
+        });
         const n = this.grid.length;
         const x = Math.floor(n / 2);
         const y = n - 1;
         for (let i = 0; i < x; i++) {
             for (let j = i; j < y - i; j++) {
-                let k = this.grid[i][j];
-                this.grid[i][j] = this.grid[y - j][i];
-                this.grid[y - j][i] = this.grid[y - i][y - j];
-                this.grid[y - i][y - j] = this.grid[j][y - i]
-                this.grid[j][y - i] = k
+                let k = newGrid[i][j];
+                newGrid[i][j] = newGrid[y - j][i];
+                newGrid[y - j][i] = newGrid[y - i][y - j];
+                newGrid[y - i][y - j] = newGrid[j][y - i]
+                newGrid[j][y - i] = k
             }
         }
+        return newGrid;
     }
 
     render() {

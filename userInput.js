@@ -42,10 +42,10 @@ function onKeyDown(e) {
             }
             break;
         case "KeyW":
-            tetris.player.rotate();
+            tetris.rotate();
             break;
         case "ArrowUp":
-            tetris.player.rotate();
+            tetris.rotate();
             break;
         case "Space":
             while (!tetris.willCollide("down")) {

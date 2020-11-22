@@ -30,6 +30,8 @@ var normalAttrib;
 var uvAttrib;
 
 var gameOver = false;
+var lastTime;
+var speed = 1000;
 // set up the webGL environment
 function setupWebGL() {
     document.onkeypress = onKeyDown;
@@ -173,6 +175,7 @@ function main() {
     setupWebGL();
     setupShaders();
     setupGrid();
+    lastTime = Date.now();
     renderGrid();
     autoMovePiece();
 } // end main
@@ -185,7 +188,12 @@ function autoMovePiece() {
         } else {
             tetris.player.y--;
         }
-        setTimeout(autoMovePiece, 1000);
+        //if like a min has passed increase speed
+        if (Date.now() - lastTime > 60000) {
+            speed = speed - (speed * .25);
+            lastTime = Date.now();
+        }
+        setTimeout(autoMovePiece, speed);
     } else {
         console.log('game over');
         window.cancelAnimationFrame(renderGrid);
